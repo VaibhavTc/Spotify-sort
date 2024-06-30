@@ -17,7 +17,8 @@ const App = () => {
           const response = await axios.get(
             `http://localhost:5000/playlist/${playlistId}`
           );
-          const playlistTracks = response.data;
+          const playlistTracks = response.data || [];
+          console.log("playlistTracks", playlistTracks);
           const ids = playlistTracks.map((song) => song.id);
           setSongIds(ids);
           setTracks(playlistTracks);
@@ -30,83 +31,62 @@ const App = () => {
     fetchPlaylist();
   }, [playlistId]);
 
-  const fetchAudioFeatures = async (trackId) => {
-    const url = `http://localhost:5000/audio-features/${trackId}`;
+  const fetchAudioFeatures = async (trackIds) => {
     try {
-      const response = await axios.get(url);
-      return response.data;
+      const response = await axios.post(
+        `http://localhost:5000/audio-features`,
+        { trackIds }
+      );
+      const audioFeatures = response.data || [];
+      console.log("audio-features", audioFeatures);
+      return audioFeatures;
     } catch (error) {
-      console.error("Error fetching audio features for track", error);
-      return null;
+      console.error("Error fetching audio features", error);
+      return [];
     }
   };
 
   useEffect(() => {
     const fetchAllAudioFeatures = async () => {
-      const audioFeaturesPromises = songIds.map((trackId) =>
-        fetchAudioFeatures(trackId)
-      );
-      const audioFeatures = await Promise.all(audioFeaturesPromises);
-      console.log(audioFeatures);
-      const data = audioFeatures.map((feature) => [
-        feature.acousticness,
-        feature.danceability,
-        feature.duration_ms,
-        feature.energy,
-        feature.instrumentalness,
-        feature.key,
-        feature.liveness,
-        feature.loudness,
-        feature.speechiness,
-        feature.tempo,
-        feature.time_signature,
-        feature.valence,
-      ]);
-      // const mean = (data) => data.reduce((a, b) => a + b, 0) / data.length;
+      if (songIds.length > 0) {
+        const audioFeatures = await fetchAudioFeatures(songIds);
+        // console.log(audioFeatures);
+        const data = audioFeatures.map((feature) => [
+          feature.acousticness,
+          feature.danceability,
+          feature.duration_ms,
+          feature.energy,
+          feature.instrumentalness,
+          feature.key,
+          feature.liveness,
+          feature.loudness,
+          feature.speechiness,
+          feature.tempo,
+          feature.time_signature,
+          feature.valence,
+        ]);
 
-      // // Function to calculate the standard deviation of an array
-      // const standardDeviation = (data) => {
-      //   const m = mean(data);
-      //   return Math.sqrt(
-      //     data.reduce((a, b) => a + Math.pow(b - m, 2), 0) / data.length
-      //   );
-      // };
+        const umap = new UMAP({
+          nComponents: 2,
+        });
+        const embedding = umap.fit(data);
 
-      // // Function to standardize data (z-score normalization)
-      // const standardize = (data) => {
-      //   const m = mean(data);
-      //   const sd = standardDeviation(data);
-      //   return data.map((x) => (x - m) / sd);
-      // };
+        const distanceMatrix = calculateDistanceMatrix(embedding);
+        const initialOrder = tracks.map((_, index) => index);
+        const optimizedOrder = linKernighanHeuristic(
+          initialOrder,
+          distanceMatrix
+        );
 
-      // // Function to normalize data (min-max normalization)
-      // const normalize = (data) => {
-      //   const min = Math.min(...data);
-      //   const max = Math.max(...data);
-      //   return data.map((x) => (x - min) / (max - min));
-      // };
-      const umap = new UMAP({
-        nComponents: 2,
-      });
-      const embedding = umap.fit(data);
-
-      const distanceMatrix = calculateDistanceMatrix(embedding);
-      const initialOrder = tracks.map((_, index) => index);
-      const optimizedOrder = linKernighanHeuristic(
-        initialOrder,
-        distanceMatrix
-      );
-
-      const optimizedPlaylist = optimizedOrder.map((index) => tracks[index]);
-      // res.json({ optimizedPlaylist });
-      console.log("feature", data);
-      setAudioFeaturesArray(audioFeatures);
+        const optimizedPlaylist = optimizedOrder.map((index) => tracks[index]);
+        console.log("feature", data);
+        setAudioFeaturesArray(audioFeatures);
+      }
     };
 
-    if (songIds.length > 0) {
-      fetchAllAudioFeatures();
-    }
+    fetchAllAudioFeatures();
   }, [songIds]);
+
   function calculateDistanceMatrix(embedding) {
     const numPoints = embedding.length;
     const distanceMatrix = Array.from({ length: numPoints }, () =>
@@ -144,7 +124,6 @@ const App = () => {
     let bestDistance = currentDistance;
 
     for (let k = 0; k < 1000; k++) {
-      // Number of iterations
       let [i, j] = [
         Math.floor(Math.random() * order.length),
         Math.floor(Math.random() * order.length),
@@ -170,6 +149,7 @@ const App = () => {
 
     return bestOrder;
   }
+
   return (
     <div className="container">
       <h1>Spotify Playlist Sorter</h1>
@@ -178,12 +158,6 @@ const App = () => {
         placeholder="Enter Playlist ID"
         value={playlistId}
         onChange={(e) => setPlaylistId(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="Enter New Playlist Name"
-        value={playlistName}
-        onChange={(e) => setPlaylistName(e.target.value)}
       />
       <ul>
         {tracks.map((track) => (
@@ -194,7 +168,7 @@ const App = () => {
         ))}
       </ul>
       <div>
-        <h2>Audio Features</h2>
+        {audioFeaturesArray.length ? <h2>Audio Features</h2> : ""}
         <ul>
           {audioFeaturesArray.map((features, index) => (
             <li key={index}>

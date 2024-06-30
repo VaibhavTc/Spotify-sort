@@ -56,46 +56,17 @@ app.get("/playlist/:id", async (req, res) => {
         },
       }
     );
-
     const tracks = playlistResponse.data.items.map((item) => item.track);
-
-    const trackDetails = await Promise.all(
-      tracks.map(async (track) => {
-        const trackData = await axios.get(
-          `https://api.spotify.com/v1/tracks/${track.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-        return trackData.data;
-      })
-    );
-
-    const audioFeatures = await Promise.all(
-      trackDetails.map(async (track) => {
-        const response = await axios.get(
-          `https://api.spotify.com/v1/audio-features/${track.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-        return response.data;
-      })
-    );
-
-    res.json(audioFeatures);
+    console.log("tracks", tracks);
+    res.json(tracks);
   } catch (error) {
     console.error("Error fetching playlist data", error);
     res.status(500).send("Error fetching playlist data");
   }
 });
 
-app.get("/audio-features/:id", async (req, res) => {
-  const trackId = req.params.id;
+app.post("/audio-features", async (req, res) => {
+  const trackIds = req.body.trackIds;
 
   if (!accessToken) {
     await getAccessToken();
@@ -103,14 +74,15 @@ app.get("/audio-features/:id", async (req, res) => {
 
   try {
     const response = await axios.get(
-      `https://api.spotify.com/v1/audio-features/${trackId}`,
+      `https://api.spotify.com/v1/audio-features?ids=${trackIds.join(",")}`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       }
     );
-    res.json(response.data);
+    console.log("response", response);
+    res.json(response.data.audio_features);
   } catch (error) {
     console.error("Error fetching audio features", error);
     res.status(500).send("Error fetching audio features");
