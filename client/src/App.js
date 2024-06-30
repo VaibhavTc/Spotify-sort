@@ -6,13 +6,48 @@ import { UMAP } from "umap-js";
 const App = () => {
   const [tracks, setTracks] = useState([]);
   const [songIds, setSongIds] = useState([]);
-  const [playlistId, setPlaylistId] = useState("");
+  const [playlistUrl, setPlaylistUrl] = useState("");
   const [playlistName, setPlaylistName] = useState("");
   const [audioFeaturesArray, setAudioFeaturesArray] = useState([]);
 
+  // useEffect(() => {
+  //   const fetchPlaylist = async () => {
+  //     if (playlistId) {
+  //       try {
+  //         const response = await axios.get(
+  //           `http://localhost:5000/playlist/${playlistId}`
+  //         );
+  //         const playlistTracks = response.data || [];
+  //         console.log("playlistTracks", playlistTracks);
+  //         const ids = playlistTracks.map((song) => song.id);
+  //         setSongIds(ids);
+  //         setTracks(playlistTracks);
+  //       } catch (error) {
+  //         console.error("Error fetching playlist data", error);
+  //       }
+  //     }
+  //   };
+
+  //   fetchPlaylist();
+  // }, [playlistId]);
+  const extractPlaylistId = (url) => {
+    // Example URL format: https://open.spotify.com/playlist/37i9dQZF1DWXLeA8Omikj7
+    const regex = /playlist\/([a-zA-Z0-9]+)/;
+    const match = url.match(regex);
+    if (match && match[1]) {
+      return match[1];
+    }
+    return null;
+  };
+
   useEffect(() => {
     const fetchPlaylist = async () => {
-      if (playlistId) {
+      if (playlistUrl) {
+        const playlistId = extractPlaylistId(playlistUrl);
+        if (!playlistId) {
+          console.error("Invalid playlist URL");
+          return;
+        }
         try {
           const response = await axios.get(
             `http://localhost:5000/playlist/${playlistId}`
@@ -29,7 +64,7 @@ const App = () => {
     };
 
     fetchPlaylist();
-  }, [playlistId]);
+  }, [playlistUrl]);
 
   const fetchAudioFeatures = async (trackIds) => {
     try {
@@ -156,8 +191,8 @@ const App = () => {
       <input
         type="text"
         placeholder="Enter Playlist ID"
-        value={playlistId}
-        onChange={(e) => setPlaylistId(e.target.value)}
+        value={playlistUrl}
+        onChange={(e) => setPlaylistUrl(e.target.value)}
       />
       <ul>
         {tracks.map((track) => (
